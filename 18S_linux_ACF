@@ -1,0 +1,214 @@
+ #How to use ACF system for MiSeq analysis using Mothur
+ #Fei Yao
+ #8-21-2019
+
+ #Access ACF Server
+ ssh youruserID@duo.acf.tennessee.edu
+
+ #Make directories in Documents folder
+ #sequencing data was placed at /lustre/haven/proj/UTK0113/fyao2/poultry/raw_data/18S
+ #Make a 18S analysis folder at /lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S
+
+#To Access mothur, we need to locate the mothur direction
+cd /lustre/haven/proj/UTK0113/fyao2/poultry/mothur
+#activate Mothur
+/lustre/haven/proj/UTK0113/fyao2/poultry/mothur/mothur
+
+set.dir(input=/lustre/haven/proj/UTK0113/fyao2/poultry/raw_data/18S, output=/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S)
+
+make.file(inputdir=/lustre/haven/proj/UTK0113/fyao2/poultry/raw_data/18S, type=fastq, prefix=stability)
+/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S)
+
+set.dir(input=/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S, output=/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S)
+
+summary.seqs(fasta=stability.trim.contigs.fasta)
+
+screen.seqs(fasta=stability.trim.contigs.fasta, group=stability.contigs.groups, summary=stability.trim.contigs.summary, maxambig=0, maxlength=550)
+   #any sequence larger than 550 will be removed
+
+get.current()
+
+unique.seqs()
+
+count.seqs(name=stability.trim.contigs.good.names, group=stability.contigs.good.groups)
+    #counts the number of sequences represented by the representative sequence in a name file.
+
+summary.seqs(count=stability.trim.contigs.good.count_table)
+    #the number of unique sequences is included
+
+align.seqs(fasta=eu.fasta, reference= silva.seed_v132.align)
+    #Aligh the variable region to the silvadatabase to allow use of the selected of the silva database that matchs the amplicon
+
+summary.seqs(fasta=eu.align)
+    ##The start and end values will be used to perform a pcr.seqs on the silva reference.
+
+pcr.seqs(fasta=silva.seed_v132.align, start=15663, end=28464, keepdots=F, processors=32)
+    #Time to screen and the number of sequences screened will be reported
+
+rename.file(input=silva.seed_v132.pcr.align, new=silva.eu.align)
+    #change the pcr.align file name
+
+summary.seqs(fasta=silva.eu.align)
+
+align.seqs(fasta=stability.trim.contigs.good.unique.fasta, reference=silva.eu.align)
+    #Align the sample sequences to the selected silva reference alignment
+
+summary.seqs(fasta=stability.trim.contigs.good.unique.align, count=stability.trim.contigs.good.count_table)
+
+screen.seqs(fasta=stability.trim.contigs.good.unique.align, count=stability.trim.contigs.good.count_table, summary=stability.trim.contigs.good.unique.summary, start=2, end=12801, maxhomop=8)
+    #sequences with homopolymers greater than8 were removeed
+
+summary.seqs(fasta=current, count=current)
+    
+
+filter.seqs(fasta=stability.trim.contigs.good.unique.good.align, vertical=T, trump=.)
+    #remove columns with no real infomation (- or .)
+    #In this step, the length of filtered alignment, number of columns removed, length of original alignment, and number of sequences were generated.
+
+unique.seqs(fasta=stability.trim.contigs.good.unique.good.filter.fasta, count=stability.trim.contigs.good.good.count_table)
+    #Trimming the ends generated some redundancies, which unique.seqs removed.
+    #Reports number of uniques it starts with and how many it ended with. 
+
+pre.cluster(fasta=stability.trim.contigs.good.unique.good.filter.unique.fasta, count=stability.trim.contigs.good.unique.good.filter.count_table, diffs=6)
+    #Denoise the sequences by removing sequences that due to sequencing error.
+    #Allow up to 6 difference betweene sequences to considered the samesequence.
+    #RUle of thumb is 6 difference per 100bp of sequence.
+    #This step generates lots of output files, included map file for eachsample.
+
+summary.seqs(fasta=current, count=current)
+    #expect a significant drop in the numberof unque sequences, the total      
+    #number of sequences should be unchanged.
+
+#chimera.uchime(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.count_table, dereplicate=t, processors=1)
+    #I did not use unchime
+
+chimera.vsearch(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.count_table, dereplicate=t, processors=1)
+    #processors=6 is too high, set processors=1
+
+remove.seqs(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.fasta, accnos=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.accnos)
+    #The chimeras are removed and the number of sequences will be reprted.
+
+summary.seqs(fasta=current, count=current)
+    #The change in sequences after removal of chimera should be noted.
+
+set.dir(input=/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S, output=/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/18S)
+
+classify.seqs(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.count_table, reference=silva.eu.align, taxonomy=silva.nr_v132.pick.tax, cutoff=80)
+    #This was done using the full silva dataset, the nr_132
+
+#list.seqs(fasta=silva.eu.align)
+#get.seqs(taxonomy=silva.nr_v132.tax, accnos=current)
+
+
+remove.lineage(fasta=current, count=current, taxonomy=current, taxon=Mitochondria-Bacteria-Archaea-Eukaryota_unclassified-Ochrophyta-Phragmoplastophyta-unknown)
+
+remove.lineage(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.taxonomy, taxon=Mitochondria-Bacteria-Archaea-Eukaryota_unclassified-Ochrophyta-Phragmoplastophyta-unknown)
+
+    #Mitochondria-Bacteria-Archaea are removed.
+    #Maybe I should use taxon=Chloroplast-Mitochondria-unknown-Bacteria-Archaea
+
+
+#cluster.split(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.pick.taxonomy,splitmethod=classify,taxlevel=4,cutoff=0.03,processors=3)
+    #####This command is not working, due to the optic will generate a really  ####huge dist file, over 1.3tb###
+    #####opti is the default method, for the fungi, you can use agc or dgc to ####instead of opti###
+
+    ###To avoid the question, i used the agc method to analysis cluster split###
+    ###in this step, you also can use taxonomy=pick.nr_132.pick.taxonomy, keep the method=agc or dgc#
+
+#agc#
+cluster.split(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.pick.taxonomy,splitmethod=classify,taxlevel=4,cutoff=0.03, method=agc, processors=20)
+
+#dgc#
+cluster.split(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.pick.taxonomy,splitmethod=classify,taxlevel=4,cutoff=0.03, method=dgc, processors=20)
+
+
+#if defualt methid was used
+make.shared(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.opti_mcc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, label=0.03)
+#if age was used#
+make.shared(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.agc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, label=0.03)
+    #Shared file includes the number of sequences in each OTU from each group.
+	#The 97% similarity is chosen (0.03 cutoff).
+
+
+
+#using dgc method
+make.shared(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.dgc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, label=0.03)
+
+#if default method was used
+classify.otu(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.opti_mcc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.pick.taxonomy, label=0.03)
+#if agc was used
+classify.otu(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.agc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.pick.taxonomy, label=0.03)
+
+#using the dgc method
+classify.otu(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.dgc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.wang.pick.taxonomy, label=0.03)
+
+count.groups(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.agc.shared)
+     #Reports the number of sequences per sample.
+
+#if default method was used
+count.groups(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.opti_mcc.shared)
+#using the dgc method
+count.groups(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.dgc.shared)
+
+sub.sample(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.agc.shared, size=109114)
+
+#if default method was used
+ 
+sub.sample(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.opti_mcc.shared, size=2)
+
+#using the dgc method
+sub.sample(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.dgc.shared, size=109116)
+
+####how to deal with the cluster.split command,below is the solution
+#increase the diff number to 5####
+#PBS -S /bin/bash
+#PBS -A ACF-UTK0011
+#PBS -l nodes=4,walltime=6:00:00
+#PBS -N Strigolactone_qiime2_6h
+#PBS_NNODES 16
+
+module load qiime2/2017.11
+source activate qiime2-2017.11
+cd $PBS_O_WORKDIR
+
+#####
+scp -r fyao2@datamover1.nics.utk.edu:/lustre/haven/proj/UTK0113/fyao2/poultry/QC .
+###From Fang
+
+
+
+
+
+grep --color 'M00700_23_000000000-C7WJ2_1_1106_27848_10053' stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.fasta  
+
+grep -A 1 -B 1 --color 'M00700_23_000000000-C7WJ2_1_1106_27848_10053' stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.fasta   
+
+vim stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.nr_v132.wang.taxonomy                          
+
+vim stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.nr_v132.wang.edit.taxonomy                      
+
+awk '{print $2}' stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.nr_v132.wang.edit.taxonomy | sort | uniq > tax_diagnosis    
+
+vim tax_diagnosis
+
+awk '{print $2}' stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.nr_v132.wang.edit.taxonomy | sort > tax_diagnosis 
+
+vim tax_diagnosis 
+
+man grep 
+
+grep -v 'Ascomycota' tax_diagnosis  > tax_diagnosis_remove_Ascomycota              
+
+vim tax_diagnosis_remove_Ascomycota
+
+grep -v 'Eukaryota_unclassified' tax_diagnosis_remove_Ascomycota > tax_diagnosis_remove_Ascomycota_remove_Eucaryounclassified 
+
+vim tax_diagnosis_remove_Ascomycota_remove_Eucaryounclassified
+awk '{print $2}' stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.nr_v132.wang.edit.taxonomy | sort | uniq > tax_diagnosis  
+ vim tax_diagnosis        
+
+
+
+
+
+
