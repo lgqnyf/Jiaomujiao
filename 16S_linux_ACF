@@ -58,7 +58,20 @@ summary.tax(taxonomy=current, count=current)
 
 ####more than one hour? Three hours###
 cluster.split(fasta=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.fasta, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.taxonomy,splitmethod=classify,taxlevel=5,cutoff=0.03)
-####in the cluster.split, I would like to try taxlevel=5
+####in the cluster.split, I would like to try taxlevel=5, it does not matter about the taxl
+#For Tax4Fun, the phylotype is necessary after cluster.split
+########
+########Start now, for Tax4Fun######
+phylotype(taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.taxonomy)
+
+classify.otu(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.tx.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, taxonomy=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.taxonomy, label=1)
+
+count.groups(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.tx.shared)
+
+sub.sample(shared=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.tx.shared, size=511878)
+
+scp fyao2@datamover1.nics.utk.edu:/lustre/haven/proj/UTK0113/fyao2/poultry/analysis/16S/stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pds.wang.pick.tx.1.subsample.shared .
+########End now, for Tax4Fun#######
 
 make.shared(list=stability.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.opti_mcc.list, count=stability.trim.contigs.good.unique.good.filter.unique.precluster.denovo.vsearch.pick.pick.count_table, label=0.03)
 
